@@ -7,10 +7,14 @@ Handles downloading tracks from DAB in various quality formats.
 
 import os
 import time
+from io import BytesIO
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import requests
+from mutagen.flac import FLAC
+from mutagen.id3 import APIC, ID3, TALB, TDRC, TIT2, TPE1
+from mutagen.mp3 import MP3
 from tqdm import tqdm
 
 from dabhounds.core.auth import get_authenticated_session, load_config
@@ -69,6 +73,117 @@ def get_stream_url(track_id: str, quality: int = 27) -> Optional[str]:
     except requests.RequestException as e:
         print(f"[DABHound] Error getting stream URL: {e}")
         return None
+
+
+def add_metadata_to_file(file_path: Path, track: Dict) -> bool:
+    """
+    Add metadata (tags) to downloaded audio file.
+
+    Args:
+        file_path: Path to audio file
+        track: Track dictionary with metadata
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        # Extract metadata from track
+        title = track.get("title", "")
+        artist = track.get("artist", "")
+        album = track.get("albumTitle", "")
+        release_date = track.get("releaseDate", "")
+        year = (
+            release_date.split("-")[0]
+            if release_date and "-" in release_date
+            else release_date
+        )
+
+        # Get album cover URL
+        album_cover_url = None
+        image = track.get("image")
+        if image:
+            if isinstance(image, dict):
+                # Try different size keys
+                album_cover_url = (
+                    image.get("large") or image.get("medium") or image.get("small")
+                )
+            elif isinstance(image, str):
+                album_cover_url = image
+
+        # Download album cover if available
+        album_cover_data = None
+        if album_cover_url:
+            try:
+                cover_response = requests.get(album_cover_url, timeout=10)
+                if cover_response.status_code == 200:
+                    album_cover_data = cover_response.content
+            except:
+                pass  # Continue without cover
+
+        # Add metadata based on file type
+        if file_path.suffix.lower() == ".mp3":
+            # MP3 metadata using ID3
+            try:
+                audio = MP3(file_path, ID3=ID3)
+            except:
+                # Create ID3 tag if doesn't exist
+                audio = MP3(file_path)
+                audio.add_tags()
+
+            if title:
+                audio.tags.add(TIT2(encoding=3, text=title))
+            if artist:
+                audio.tags.add(TPE1(encoding=3, text=artist))
+            if album:
+                audio.tags.add(TALB(encoding=3, text=album))
+            if year:
+                audio.tags.add(TDRC(encoding=3, text=year))
+
+            # Add album cover
+            if album_cover_data:
+                audio.tags.add(
+                    APIC(
+                        encoding=3,
+                        mime="image/jpeg",
+                        type=3,  # Cover (front)
+                        desc="Cover",
+                        data=album_cover_data,
+                    )
+                )
+
+            audio.save()
+
+        elif file_path.suffix.lower() == ".flac":
+            # FLAC metadata
+            audio = FLAC(file_path)
+
+            if title:
+                audio["title"] = title
+            if artist:
+                audio["artist"] = artist
+            if album:
+                audio["album"] = album
+            if year:
+                audio["date"] = year
+
+            # Add album cover
+            if album_cover_data:
+                from mutagen.flac import Picture
+
+                picture = Picture()
+                picture.type = 3  # Cover (front)
+                picture.mime = "image/jpeg"
+                picture.desc = "Cover"
+                picture.data = album_cover_data
+                audio.add_picture(picture)
+
+            audio.save()
+
+        return True
+
+    except Exception as e:
+        print(f"[DABHound] Warning: Could not add metadata: {e}")
+        return False
 
 
 def download_file(url: str, output_path: Path, show_progress: bool = True) -> bool:
@@ -192,6 +307,9 @@ def download_track(
     # Download
     print(f"[DABHound] Downloading to: {output_path}")
     if download_file(stream_url, output_path, show_progress):
+        # Add metadata to the file
+        print(f"[DABHound] Adding metadata...")
+        add_metadata_to_file(output_path, track)
         print(f"[DABHound] ✓ Downloaded: {output_path}")
         return output_path
     else:
