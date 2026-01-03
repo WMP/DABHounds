@@ -53,11 +53,10 @@ class LibraryTUI:
         if self.current_filter == "selected":
             filtered = [t for t in filtered if str(t.get("id")) in self.selected_ids]
         elif self.current_filter == "duplicates":
-            dup_ids = set()
+            # Return tracks grouped by duplicate groups
+            filtered = []
             for group in self.duplicate_groups:
-                for track in group:
-                    dup_ids.add(str(track.get("id")))
-            filtered = [t for t in filtered if str(t.get("id")) in dup_ids]
+                filtered.extend(group)
 
         # Apply search
         if self.search_query:
@@ -443,15 +442,19 @@ class LibraryTUI:
 
             count = self.find_and_cache_duplicates()
 
-            msg = f"Found {len(self.duplicate_groups)} duplicate groups ({count} total tracks). Press any key..."
-            stdscr.addstr(height - 1, 0, " " * (width - 1))
-            stdscr.addstr(height - 1, 0, msg[: width - 1], curses.color_pair(1))
-            stdscr.refresh()
-            stdscr.getch()
-
             if self.duplicate_groups:
                 self.current_filter = "duplicates"
                 self.scroll_pos = 0
+                # Show brief message without blocking
+                msg = f"Found {len(self.duplicate_groups)} groups ({count} tracks)"
+                stdscr.addstr(height - 1, 0, " " * (width - 1))
+                stdscr.addstr(height - 1, 0, msg[: width - 1], curses.color_pair(1))
+                stdscr.refresh()
+            else:
+                msg = "No duplicates found"
+                stdscr.addstr(height - 1, 0, " " * (width - 1))
+                stdscr.addstr(height - 1, 0, msg[: width - 1], curses.color_pair(3))
+                stdscr.refresh()
         finally:
             stdscr.timeout(100)
 
