@@ -14,6 +14,8 @@ from dabhounds.core.library_manager import (
     find_duplicates,
     get_library_details,
     get_library_tracks,
+    list_user_libraries,
+    print_library_summary,
 )
 from dabhounds.core.library_tui import show_library_manager_tui
 
