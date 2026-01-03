@@ -563,10 +563,32 @@ class LibraryTUI:
             )
 
             # Remove deleted tracks from local list
+            deleted_ids = self.selected_ids.copy()
             self.tracks = [
-                t for t in self.tracks if str(t.get("id")) not in self.selected_ids
+                t for t in self.tracks if str(t.get("id")) not in deleted_ids
             ]
             self.selected_ids.clear()
+
+            # Rebuild duplicate groups if we were viewing them
+            if self.duplicate_groups:
+                # Remove deleted tracks from duplicate groups
+                new_groups = []
+                for group in self.duplicate_groups:
+                    new_group = [
+                        t for t in group if str(t.get("id")) not in deleted_ids
+                    ]
+                    # Only keep groups with 2+ tracks (still duplicates)
+                    if len(new_group) >= 2:
+                        new_groups.append(new_group)
+
+                self.duplicate_groups = new_groups
+
+                # Rebuild track-to-group mapping
+                self.track_to_group = {}
+                for group_idx, group in enumerate(self.duplicate_groups, 1):
+                    for track in group:
+                        track_id = str(track.get("id"))
+                        self.track_to_group[track_id] = group_idx
 
             msg = f"Deleted {success} tracks. Failed: {failed}. Press any key..."
             self._show_message(stdscr, height, width, msg, curses.color_pair(1))
