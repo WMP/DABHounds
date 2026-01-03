@@ -27,14 +27,19 @@ def get_library_details(library_id: str) -> Optional[Dict]:
     Fetch library metadata from DAB API.
 
     Returns:
-        Dictionary with library info: {id, name, description, isPublic, trackCount, etc.}
-        or None if library doesn't exist or request fails.
+        Dictionary with library info: {id, name, description, isPublic, tracks, etc.}
+        The response includes full library object with embedded tracks.
+        Returns None if library doesn't exist or request fails.
     """
     session = get_authenticated_session()
     try:
         response = session.get(f"{API_BASE}/libraries/{library_id}")
         if response.status_code == 200:
-            return response.json()
+            data = response.json()
+            # API returns {"library": {...}} format
+            if isinstance(data, dict) and "library" in data:
+                return data["library"]
+            return data
         elif response.status_code == 404:
             print(f"[DABHound] Library {library_id} not found.")
             return None
@@ -50,24 +55,53 @@ def get_library_tracks(library_id: str) -> List[Dict]:
     """
     Fetch all tracks from a DAB library.
 
+    Note: DAB API returns tracks as part of the library object with pagination.
+    This function handles pagination automatically to fetch all tracks.
+
     Returns:
         List of track dictionaries with full metadata.
     """
     session = get_authenticated_session()
-    try:
-        response = session.get(f"{API_BASE}/libraries/{library_id}/tracks")
-        if response.status_code == 200:
+    all_tracks = []
+    page = 1
+
+    while True:
+        try:
+            # Fetch page
+            response = session.get(
+                f"{API_BASE}/libraries/{library_id}", params={"page": page}
+            )
+            if response.status_code != 200:
+                print(
+                    f"[DABHound] Error fetching tracks page {page}: {response.status_code}"
+                )
+                break
+
             data = response.json()
-            # API might return {"tracks": [...]} or just [...]
-            if isinstance(data, dict) and "tracks" in data:
-                return data["tracks"]
-            return data if isinstance(data, list) else []
-        else:
-            print(f"[DABHound] Error fetching tracks: {response.status_code}")
-            return []
-    except Exception as e:
-        print(f"[DABHound] Exception while fetching tracks: {e}")
-        return []
+            if isinstance(data, dict) and "library" in data:
+                library = data["library"]
+            else:
+                library = data
+
+            # Get tracks from this page
+            tracks = library.get("tracks", [])
+            if tracks:
+                all_tracks.extend(tracks)
+
+            # Check pagination
+            pagination = library.get("pagination", {})
+            has_more = pagination.get("hasMore", False)
+
+            if not has_more:
+                break
+
+            page += 1
+
+        except Exception as e:
+            print(f"[DABHound] Exception while fetching tracks page {page}: {e}")
+            break
+
+    return all_tracks
 
 
 def delete_track_from_library(library_id: str, track_id: str) -> bool:
