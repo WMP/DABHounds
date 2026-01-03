@@ -11,6 +11,7 @@ Provides functions to:
 
 import csv
 import json
+import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -20,6 +21,59 @@ from dabhounds.core.auth import get_authenticated_session, load_config
 
 CONFIG = load_config()
 API_BASE = CONFIG["DAB_API_BASE"]
+
+# Cache directory
+CACHE_DIR = Path.home() / ".dabhound" / "cache"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+# Cache expiry time (in seconds) - 1 hour
+CACHE_EXPIRY = 3600
+
+
+def _get_cache_path(library_id: str) -> Path:
+    """Get cache file path for a library."""
+    return CACHE_DIR / f"library_{library_id}.json"
+
+
+def _load_cache(library_id: str) -> Optional[Dict]:
+    """Load cached library data if valid."""
+    cache_path = _get_cache_path(library_id)
+
+    if not cache_path.exists():
+        return None
+
+    try:
+        # Check if cache is expired
+        cache_age = time.time() - cache_path.stat().st_mtime
+        if cache_age > CACHE_EXPIRY:
+            print(f"[DABHound] Cache expired for library {library_id}")
+            return None
+
+        with cache_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            print(f"[DABHound] Loaded {len(data.get('tracks', []))} tracks from cache")
+            return data
+    except Exception as e:
+        print(f"[DABHound] Error loading cache: {e}")
+        return None
+
+
+def _save_cache(library_id: str, data: Dict):
+    """Save library data to cache."""
+    cache_path = _get_cache_path(library_id)
+
+    try:
+        with cache_path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"[DABHound] Error saving cache: {e}")
+
+
+def _invalidate_cache(library_id: str):
+    """Delete cache for a library."""
+    cache_path = _get_cache_path(library_id)
+    if cache_path.exists():
+        cache_path.unlink()
 
 
 def get_library_details(library_id: str) -> Optional[Dict]:
@@ -51,19 +105,32 @@ def get_library_details(library_id: str) -> Optional[Dict]:
         return None
 
 
-def get_library_tracks(library_id: str) -> List[Dict]:
+def get_library_tracks(library_id: str, use_cache: bool = True) -> List[Dict]:
     """
     Fetch all tracks from a DAB library.
 
     Note: DAB API returns tracks as part of the library object with pagination.
     This function handles pagination automatically to fetch all tracks.
+    Results are cached to speed up subsequent requests.
+
+    Args:
+        library_id: DAB library ID
+        use_cache: If True, use cached data if available (default: True)
 
     Returns:
         List of track dictionaries with full metadata.
     """
+    # Try cache first
+    if use_cache:
+        cached = _load_cache(library_id)
+        if cached:
+            return cached.get("tracks", [])
+
+    print(f"[DABHound] Fetching all tracks from API...")
     session = get_authenticated_session()
     all_tracks = []
     page = 1
+    total_pages = None
 
     while True:
         try:
@@ -92,6 +159,16 @@ def get_library_tracks(library_id: str) -> List[Dict]:
             pagination = library.get("pagination", {})
             has_more = pagination.get("hasMore", False)
 
+            if total_pages is None and pagination.get("total"):
+                total_pages = (
+                    pagination["total"] + pagination.get("limit", 20) - 1
+                ) // pagination.get("limit", 20)
+
+            if total_pages:
+                print(
+                    f"[DABHound] Fetched page {page}/{total_pages} ({len(all_tracks)} tracks so far)"
+                )
+
             if not has_more:
                 break
 
@@ -100,6 +177,14 @@ def get_library_tracks(library_id: str) -> List[Dict]:
         except Exception as e:
             print(f"[DABHound] Exception while fetching tracks page {page}: {e}")
             break
+
+    # Cache the result
+    if all_tracks:
+        _save_cache(
+            library_id,
+            {"id": library_id, "tracks": all_tracks, "cached_at": time.time()},
+        )
+        print(f"[DABHound] Cached {len(all_tracks)} tracks")
 
     return all_tracks
 
@@ -141,6 +226,10 @@ def delete_tracks_bulk(library_id: str, track_ids: List[str]) -> Tuple[int, int]
             success += 1
         else:
             failed += 1
+
+    # Invalidate cache after deletions
+    if success > 0:
+        _invalidate_cache(library_id)
 
     return success, failed
 
@@ -317,14 +406,12 @@ def print_library_summary(library: Dict, tracks: List[Dict]):
     if tracks:
         print("\nTracks:")
         print("-" * 70)
-        for i, track in enumerate(tracks[:10], 1):  # Show first 10
+        for i, track in enumerate(tracks, 1):
             print(
                 f"{i}. {track.get('artist', 'Unknown')} - {track.get('title', 'Unknown')}"
             )
             print(f"   ID: {track.get('id')} | Album: {track.get('albumTitle', 'N/A')}")
 
-        if len(tracks) > 10:
-            print(f"\n... and {len(tracks) - 10} more tracks")
         print("-" * 70)
     else:
         print("\n(No tracks in library)")
