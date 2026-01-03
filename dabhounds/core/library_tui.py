@@ -24,8 +24,8 @@ except ImportError:
 
 from dabhounds.core.library_manager import (
     delete_tracks_bulk,
-    export_to_json,
     export_to_csv,
+    export_to_json,
     find_duplicates,
 )
 
@@ -43,6 +43,7 @@ class LibraryTUI:
         self.search_query = ""
         self.duplicate_groups = []
         self.show_help = False
+        self.track_to_group = {}  # Map track ID to group number
 
     def get_filtered_tracks(self) -> List[Dict]:
         """Get tracks based on current filter and search query."""
@@ -92,6 +93,14 @@ class LibraryTUI:
         """Find duplicates and cache them."""
         print("[DABHound] Searching for duplicates...")
         self.duplicate_groups = find_duplicates(self.tracks)
+
+        # Build track-to-group mapping
+        self.track_to_group = {}
+        for group_idx, group in enumerate(self.duplicate_groups, 1):
+            for track in group:
+                track_id = str(track.get("id"))
+                self.track_to_group[track_id] = group_idx
+
         return len(self.duplicate_groups)
 
     def run(self, stdscr):
@@ -195,21 +204,48 @@ class LibraryTUI:
         max_scroll = max(0, len(filtered) - list_height)
         self.scroll_pos = max(0, min(self.scroll_pos, max_scroll))
 
-        for i in range(min(list_height, len(filtered))):
-            track_idx = self.scroll_pos + i
-            if track_idx >= len(filtered):
+        # Track current group in duplicates view
+        current_group = None
+        display_line = 0
+
+        for track_idx in range(
+            self.scroll_pos, min(self.scroll_pos + list_height, len(filtered))
+        ):
+            if display_line >= list_height:
                 break
 
             track = filtered[track_idx]
             track_id = str(track.get("id"))
             is_selected = track_id in self.selected_ids
 
+            # Check if we need to show group header (duplicates view only)
+            if self.current_filter == "duplicates":
+                group_num = self.track_to_group.get(track_id)
+                if group_num and group_num != current_group:
+                    # Show group header
+                    y_pos = list_start + display_line
+                    if y_pos < height - 5:
+                        group_size = len(
+                            [t for t in self.duplicate_groups[group_num - 1]]
+                        )
+                        header = f"--- Group {group_num} ({group_size} tracks) ---"
+                        try:
+                            stdscr.addstr(
+                                y_pos,
+                                0,
+                                header[: width - 1],
+                                curses.color_pair(3) | curses.A_BOLD,
+                            )
+                        except curses.error:
+                            pass
+                    display_line += 1
+                    current_group = group_num
+
+                    if display_line >= list_height:
+                        break
+
             # Check if duplicate
-            is_dup = False
-            for group in self.duplicate_groups:
-                if any(str(t.get("id")) == track_id for t in group):
-                    is_dup = True
-                    break
+            is_dup = track_id in self.track_to_group
 
             artist = track.get("artist", "Unknown")
             title = track.get("title", "Unknown")
@@ -226,7 +262,7 @@ class LibraryTUI:
             if len(line) > max_len:
                 line = line[: max_len - 3] + "..."
 
-            y_pos = list_start + i
+            y_pos = list_start + display_line
             color = curses.color_pair(1) if is_selected else 0
             if is_dup and not is_selected:
                 color = curses.color_pair(5)
@@ -236,6 +272,8 @@ class LibraryTUI:
                     stdscr.addstr(y_pos, 0, line[: width - 1], color)
                 except curses.error:
                     pass
+
+            display_line += 1
 
         # Footer
         footer_y = height - 5
@@ -535,7 +573,7 @@ class LibraryTUI:
         """Show a message and wait for keypress."""
         stdscr.addstr(height - 1, 0, " " * (width - 1))
         stdscr.addstr(height - 1, 0, message[: width - 1], color)
-        stdscr.addstr(height - 1, 0, message[:width-1], color)
+        stdscr.addstr(height - 1, 0, message[: width - 1], color)
         stdscr.refresh()
         stdscr.getch()
 
