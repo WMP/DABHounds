@@ -100,10 +100,21 @@ def add_metadata_to_file(file_path: Path, track: Dict) -> bool:
 
         # Get album cover URL
         album_cover_url = None
-        image = track.get("image")
-        if image:
+
+        # Try albumCover field first (direct URL)
+        if track.get("albumCover"):
+            album_cover_url = track.get("albumCover")
+        # Try images object
+        elif track.get("images"):
+            images = track.get("images")
+            if isinstance(images, dict):
+                album_cover_url = (
+                    images.get("large") or images.get("medium") or images.get("small")
+                )
+        # Fallback to image field
+        elif track.get("image"):
+            image = track.get("image")
             if isinstance(image, dict):
-                # Try different size keys
                 album_cover_url = (
                     image.get("large") or image.get("medium") or image.get("small")
                 )
