@@ -386,6 +386,32 @@ def list_user_libraries() -> List[Dict]:
         return []
 
 
+def find_library_by_name(name: str) -> Optional[str]:
+    """
+    Find library ID by name (case-insensitive partial match).
+
+    Args:
+        name: Library name to search for
+
+    Returns:
+        Library ID if found, None otherwise
+    """
+    libraries = list_user_libraries()
+    name_lower = name.lower()
+
+    # Try exact match first
+    for lib in libraries:
+        if lib.get("name", "").lower() == name_lower:
+            return lib.get("id")
+
+    # Try partial match
+    for lib in libraries:
+        if name_lower in lib.get("name", "").lower():
+            return lib.get("id")
+
+    return None
+
+
 def print_library_summary(library: Dict, tracks: List[Dict]):
     """
     Print a formatted summary of library details.

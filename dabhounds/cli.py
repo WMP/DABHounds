@@ -305,6 +305,24 @@ def main():
         cmd_list_libraries()
         sys.exit(0)
 
+    # Handle --interactive with --library-name
+    if (
+        args.interactive
+        and args.library_name
+        and not args.library_view
+        and not args.library_duplicates
+    ):
+        from dabhounds.core.library_manager import find_library_by_name
+
+        library_id = find_library_by_name(args.library_name)
+        if library_id:
+            print(f"[DABHound] Found library: {args.library_name}")
+            cmd_view_library(library_id, interactive=True)
+        else:
+            print(f"[DABHound] Library not found: {args.library_name}")
+            print("[DABHound] Use --library-list to see all libraries")
+        sys.exit(0)
+
     if args.library_view:
         cmd_view_library(args.library_view, interactive=args.interactive)
         sys.exit(0)

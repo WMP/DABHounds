@@ -12,6 +12,7 @@ from dabhounds.core.library_manager import (
     export_to_csv,
     export_to_json,
     find_duplicates,
+    find_library_by_name,
     get_library_details,
     get_library_tracks,
     list_user_libraries,
