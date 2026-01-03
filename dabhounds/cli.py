@@ -473,6 +473,7 @@ def main():
             library_name,
             library_id,
             source_url=link,
+            show_tui=not args.download,
         )
 
     print(
