@@ -463,6 +463,7 @@ def main():
             library_id=library_id,
             library_name=library_name,
             matching_mode=match_mode,
+            show_tui=not args.download,
         )
     else:
         generate_report(

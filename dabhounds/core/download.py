@@ -123,11 +123,10 @@ def add_metadata_to_file(file_path: Path, track: Dict) -> bool:
         # Add metadata based on file type
         if file_path.suffix.lower() == ".mp3":
             # MP3 metadata using ID3
-            try:
-                audio = MP3(file_path, ID3=ID3)
-            except:
-                # Create ID3 tag if doesn't exist
-                audio = MP3(file_path)
+            audio = MP3(file_path)
+
+            # Add ID3 tag if doesn't exist
+            if audio.tags is None:
                 audio.add_tags()
 
             if title:

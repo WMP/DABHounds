@@ -131,6 +131,7 @@ def append_tracks_to_report(
     library_id: str,
     library_name: str,
     matching_mode: str,
+    show_tui: bool = True,
 ):
     """Append new tracks to existing JSON report and update TXT report."""
     report = load_report(source_url)
@@ -209,9 +210,9 @@ def append_tracks_to_report(
         f"[DABHound] Appended {appended_count} new tracks to JSON report {json_path} and TXT report {txt_path}"
     )
 
-    # Show TUI or terminal summary
+    # Show TUI or terminal summary based on show_tui parameter
     cfg = load_config()
-    if cfg.get("SHOW_TUI_OUTPUT", True):
+    if show_tui and cfg.get("SHOW_TUI_OUTPUT", True):
         if cfg.get("TUI_FALLBACK_TO_TERMINAL", True):
             show_tui_report(report["tracks"], library_name, library_id, source_url)
         else:
