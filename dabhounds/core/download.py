@@ -13,7 +13,21 @@ from typing import Dict, List, Optional
 
 import requests
 from mutagen.flac import FLAC
-from mutagen.id3 import APIC, ID3, TALB, TDRC, TIT2, TPE1
+from mutagen.id3 import (
+    APIC,
+    ID3,
+    TALB,
+    TBPM,
+    TCON,
+    TDRC,
+    TIT2,
+    TLEN,
+    TPE1,
+    TPE2,
+    TPOS,
+    TPUB,
+    TRCK,
+)
 from mutagen.mp3 import MP3
 from tqdm import tqdm
 
@@ -97,6 +111,14 @@ def add_metadata_to_file(file_path: Path, track: Dict) -> bool:
             if release_date and "-" in release_date
             else release_date
         )
+        genre = track.get("genre", "")
+        label = track.get("label", "")
+        duration = track.get("duration")  # in seconds
+        isrc = track.get("isrc", "")
+        album_artist = track.get("albumArtist", "") or artist  # fallback to artist
+        track_number = track.get("trackNumber")
+        disc_number = track.get("mediaCount")
+        composer = track.get("composer", "")
 
         # Get album cover URL
         album_cover_url = None
@@ -148,6 +170,20 @@ def add_metadata_to_file(file_path: Path, track: Dict) -> bool:
                 audio.tags.add(TALB(encoding=3, text=album))
             if year:
                 audio.tags.add(TDRC(encoding=3, text=year))
+            if genre:
+                audio.tags.add(TCON(encoding=3, text=genre))
+            if label:
+                audio.tags.add(TPUB(encoding=3, text=label))
+            if album_artist:
+                audio.tags.add(TPE2(encoding=3, text=album_artist))
+            if track_number:
+                audio.tags.add(TRCK(encoding=3, text=str(track_number)))
+            if disc_number:
+                audio.tags.add(TPOS(encoding=3, text=str(disc_number)))
+            if duration:
+                audio.tags.add(
+                    TLEN(encoding=3, text=str(duration * 1000))
+                )  # milliseconds
 
             # Add album cover
             if album_cover_data:
@@ -175,6 +211,20 @@ def add_metadata_to_file(file_path: Path, track: Dict) -> bool:
                 audio["album"] = album
             if year:
                 audio["date"] = year
+            if genre:
+                audio["genre"] = genre
+            if label:
+                audio["label"] = label
+            if album_artist:
+                audio["albumartist"] = album_artist
+            if track_number:
+                audio["tracknumber"] = str(track_number)
+            if disc_number:
+                audio["discnumber"] = str(disc_number)
+            if isrc:
+                audio["isrc"] = isrc
+            if composer:
+                audio["composer"] = composer
 
             # Add album cover
             if album_cover_data:
