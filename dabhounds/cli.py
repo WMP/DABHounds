@@ -323,6 +323,51 @@ def main():
             print("[DABHound] Use --library-list to see all libraries")
         sys.exit(0)
 
+    # Handle --interactive alone - show library picker
+    if (
+        args.interactive
+        and not args.library_view
+        and not args.library_duplicates
+        and not args.library_name
+    ):
+        from dabhounds.core.library_manager import list_user_libraries
+
+        libraries = list_user_libraries()
+
+        if not libraries:
+            print("[DABHound] No libraries found.")
+            sys.exit(1)
+
+        print("\n" + "=" * 70)
+        print("Select a library to manage:")
+        print("=" * 70)
+        for i, lib in enumerate(libraries, 1):
+            name = lib.get("name", "Unnamed")
+            track_count = lib.get("trackCount", 0)
+            print(f"{i}. {name} ({track_count} tracks)")
+        print("=" * 70)
+
+        while True:
+            try:
+                choice = input("\nEnter library number (or 'q' to quit): ").strip()
+                if choice.lower() == "q":
+                    sys.exit(0)
+
+                idx = int(choice) - 1
+                if 0 <= idx < len(libraries):
+                    library_id = libraries[idx].get("id")
+                    library_name = libraries[idx].get("name", "Unknown")
+                    print(f"\n[DABHound] Opening: {library_name}")
+                    cmd_view_library(library_id, interactive=True)
+                    sys.exit(0)
+                else:
+                    print(f"[DABHound] Invalid choice. Please enter 1-{len(libraries)}")
+            except ValueError:
+                print("[DABHound] Invalid input. Please enter a number.")
+            except KeyboardInterrupt:
+                print("\n[DABHound] Cancelled.")
+                sys.exit(0)
+
     if args.library_view:
         cmd_view_library(args.library_view, interactive=args.interactive)
         sys.exit(0)
