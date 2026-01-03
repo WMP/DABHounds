@@ -39,6 +39,7 @@ class LibraryTUI:
         self.tracks = tracks
         self.selected_ids: Set[str] = set()
         self.scroll_pos = 0
+        self.cursor_pos = 0  # Current highlighted track in filtered list
         self.current_filter = "all"  # all, selected, duplicates
         self.search_query = ""
         self.duplicate_groups = []
@@ -292,9 +293,22 @@ class LibraryTUI:
                 line = line[: max_len - 3] + "..."
 
             y_pos = list_start + display_line
-            color = curses.color_pair(1) if is_selected else 0
-            if is_dup and not is_selected:
+
+            # Determine color and attributes
+            is_cursor = track_idx == self.cursor_pos
+
+            if is_cursor:
+                # Highlighted cursor position
+                color = curses.A_REVERSE
+            elif is_selected:
+                # Selected track
+                color = curses.color_pair(1)
+            elif is_dup:
+                # Duplicate track
                 color = curses.color_pair(5)
+            else:
+                # Normal track
+                color = 0
 
             # Draw line
             if y_pos < height - 5:
@@ -387,25 +401,44 @@ class LibraryTUI:
 
         # Navigation
         elif key == curses.KEY_UP:
-            self.scroll_pos = max(0, self.scroll_pos - 1)
+            filtered = self.get_filtered_tracks()
+            if filtered:
+                self.cursor_pos = max(0, self.cursor_pos - 1)
+                # Auto-scroll up if cursor moves above visible area
+                if self.cursor_pos < self.scroll_pos:
+                    self.scroll_pos = self.cursor_pos
         elif key == curses.KEY_DOWN:
             filtered = self.get_filtered_tracks()
-            list_height = max(1, height - 5 - 6)
-            max_scroll = max(0, len(filtered) - list_height)
-            self.scroll_pos = min(max_scroll, self.scroll_pos + 1)
+            if filtered:
+                self.cursor_pos = min(len(filtered) - 1, self.cursor_pos + 1)
+                # Auto-scroll down if cursor moves below visible area
+                list_height = max(1, height - 5 - 6)
+                if self.cursor_pos >= self.scroll_pos + list_height:
+                    self.scroll_pos = self.cursor_pos - list_height + 1
         elif key == curses.KEY_PPAGE:  # Page Up
-            self.scroll_pos = max(0, self.scroll_pos - 10)
+            filtered = self.get_filtered_tracks()
+            if filtered:
+                self.cursor_pos = max(0, self.cursor_pos - 10)
+                self.scroll_pos = max(0, self.scroll_pos - 10)
+                # Ensure cursor stays in view
+                if self.cursor_pos < self.scroll_pos:
+                    self.scroll_pos = self.cursor_pos
         elif key == curses.KEY_NPAGE:  # Page Down
             filtered = self.get_filtered_tracks()
-            list_height = max(1, height - 5 - 6)
-            max_scroll = max(0, len(filtered) - list_height)
-            self.scroll_pos = min(max_scroll, self.scroll_pos + 10)
+            if filtered:
+                list_height = max(1, height - 5 - 6)
+                self.cursor_pos = min(len(filtered) - 1, self.cursor_pos + 10)
+                max_scroll = max(0, len(filtered) - list_height)
+                self.scroll_pos = min(max_scroll, self.scroll_pos + 10)
+                # Ensure cursor stays in view
+                if self.cursor_pos >= self.scroll_pos + list_height:
+                    self.scroll_pos = self.cursor_pos - list_height + 1
 
         # Selection
         elif key == ord(" "):  # Space - toggle current track
             filtered = self.get_filtered_tracks()
-            if filtered and self.scroll_pos < len(filtered):
-                track = filtered[self.scroll_pos]
+            if filtered and self.cursor_pos < len(filtered):
+                track = filtered[self.cursor_pos]
                 self.toggle_selection(str(track.get("id")))
         elif key in [ord("a"), ord("A")]:  # Select all visible
             self.select_all_visible()
@@ -421,6 +454,7 @@ class LibraryTUI:
             else:
                 self.current_filter = "all"
             self.scroll_pos = 0
+            self.cursor_pos = 0
 
         # Search
         elif key == ord("/"):
@@ -456,6 +490,7 @@ class LibraryTUI:
             query = stdscr.getstr(height - 1, 8, width - 10).decode("utf-8")
             self.search_query = query.strip()
             self.scroll_pos = 0
+            self.cursor_pos = 0
         except:
             pass
         finally:
@@ -476,6 +511,7 @@ class LibraryTUI:
             if self.duplicate_groups:
                 self.current_filter = "duplicates"
                 self.scroll_pos = 0
+                self.cursor_pos = 0
                 # Show brief message without blocking
                 msg = f"Found {len(self.duplicate_groups)} groups ({count} tracks)"
                 stdscr.addstr(height - 1, 0, " " * (width - 1))
