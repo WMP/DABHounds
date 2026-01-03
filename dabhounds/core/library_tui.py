@@ -257,11 +257,36 @@ class LibraryTUI:
             sample_rate = audio_quality.get("maximumSamplingRate", 0)
             is_hires = audio_quality.get("isHiRes", False)
 
-            # Build main line
+            # Build single line with all info (Excel style)
             marker = "[X]" if is_selected else "[ ]"
             line = f"{marker} {artist} - {title}"
 
-            # Truncate main line if needed
+            # Add metadata inline with separators
+            metadata = []
+
+            if album:
+                # Truncate album if too long
+                album_short = album if len(album) <= 30 else album[:27] + "..."
+                metadata.append(album_short)
+
+            if release_date:
+                # Extract year from date (format: YYYY-MM-DD)
+                year = (
+                    release_date.split("-")[0] if "-" in release_date else release_date
+                )
+                metadata.append(year)
+
+            if bit_depth and sample_rate:
+                quality_str = f"{bit_depth}bit/{sample_rate}kHz"
+                if is_hires:
+                    quality_str += "*"
+                metadata.append(quality_str)
+
+            # Append metadata to line with separator
+            if metadata:
+                line += " | " + " | ".join(metadata)
+
+            # Truncate if needed
             max_len = width - 3
             if len(line) > max_len:
                 line = line[: max_len - 3] + "..."
@@ -271,7 +296,7 @@ class LibraryTUI:
             if is_dup and not is_selected:
                 color = curses.color_pair(5)
 
-            # Draw main line
+            # Draw line
             if y_pos < height - 5:
                 try:
                     stdscr.addstr(y_pos, 0, line[: width - 1], color)
@@ -279,45 +304,6 @@ class LibraryTUI:
                     pass
 
             display_line += 1
-
-            # Build details line (album, year, quality)
-            if y_pos + 1 < height - 5 and display_line < list_height:
-                details = []
-
-                if album:
-                    details.append(f"Album: {album}")
-
-                if release_date:
-                    # Extract year from date (format: YYYY-MM-DD)
-                    year = (
-                        release_date.split("-")[0]
-                        if "-" in release_date
-                        else release_date
-                    )
-                    details.append(f"Year: {year}")
-
-                if bit_depth and sample_rate:
-                    quality_str = f"{bit_depth}bit/{sample_rate}kHz"
-                    if is_hires:
-                        quality_str += " Hi-Res"
-                    details.append(f"Quality: {quality_str}")
-
-                if details:
-                    details_line = "   " + " | ".join(details)
-
-                    # Truncate if needed
-                    if len(details_line) > width - 3:
-                        details_line = details_line[: width - 6] + "..."
-
-                    try:
-                        # Dim color for details
-                        stdscr.addstr(
-                            y_pos + 1, 0, details_line[: width - 1], curses.A_DIM
-                        )
-                    except curses.error:
-                        pass
-
-                    display_line += 1
 
         # Footer
         footer_y = height - 5
