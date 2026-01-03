@@ -177,7 +177,7 @@ def main():
         "--download-quality",
         choices=["mp3", "cd", "hires", "hires_max"],
         default="hires_max",
-        help="Download quality (default: hires_max)",
+        help="Download quality: mp3=320kbps MP3, cd=16bit/44.1kHz FLAC, hires=24bit/96kHz FLAC, hires_max=24bit/192kHz FLAC (default: hires_max)",
     )
     parser.add_argument(
         "--download-dir", type=str, help="Download directory (default: ./downloads)"
