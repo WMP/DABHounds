@@ -16,6 +16,12 @@ It supports multiple matching modes to optimize accuracy and lets you authentica
 - Customizable fuzzy matching threshold  
 - Shows credits and version info  
 - Update check feature
+- **Library Management** — view, manage, and clean up your DAB libraries
+  - Interactive TUI mode with arrow key navigation
+  - Duplicate detection with ISRC + fuzzy matching
+  - Bulk operations (delete, export)
+  - Smart caching for fast performance
+  - Export to JSON/CSV
 
 ---
 
@@ -101,19 +107,94 @@ dabhounds --credits
 dabhounds --update
 ```
 
+### Library Management
+
+#### Interactive Mode - Browse and Manage Libraries
+
+```bash
+# Pick library interactively
+dabhounds --interactive
+
+# Open specific library by name
+dabhounds --interactive --library-name "My Playlist"
+
+# Find and manage duplicates interactively
+dabhounds --library-duplicates LIBRARY_ID --interactive
+```
+
+#### Non-Interactive Mode - CLI Commands
+
+```bash
+# List all your libraries
+dabhounds --library-list
+
+# View library details
+dabhounds --library-view LIBRARY_ID
+
+# Export library to JSON or CSV
+dabhounds --library-export LIBRARY_ID --format json --output tracks.json
+
+# Find duplicates (with threshold)
+dabhounds --library-duplicates LIBRARY_ID --dup-threshold 90
+
+# Delete specific tracks
+dabhounds --library-delete LIBRARY_ID --track-ids "123,456,789"
+```
+
+**Interactive TUI Controls:**
+- `↑`/`↓` — Navigate tracks
+- `Space` — Toggle selection
+- `A` — Select all visible tracks
+- `F` — Cycle filter (all/selected/duplicates)
+- `/` — Search mode
+- `U` — Find duplicates
+- `D` — Delete selected tracks
+- `E`/`C` — Export to JSON/CSV
+- `H` — Show help
+- `Q` — Quit
+
+For complete documentation, see [LIBRARY_MANAGER.md](LIBRARY_MANAGER.md)
 
 ---
 
 ## ⚙️ Command-Line Options
 
+### Playlist Conversion
+
 | Option                        | Description                                    |
 |-------------------------------|-----------------------------------------------|
 | `<link>`                       | Spotify, YouTube URL, or ISRC input           |
 | `--mode {strict,lenient,manual}` | Choose matching mode (default: lenient)       |
+| `--threshold <0-100>`           | Set fuzzy search match threshold percentage  |
+
+### Authentication
+
+| Option                        | Description                                    |
+|-------------------------------|-----------------------------------------------|
 | `--login`                       | Log in to DAB (required for library creation) |
 | `--logout`                      | Log out from DAB and Spotify                  |
 | `--spotify-login`               | Authenticate with Spotify via OAuth (optional)|
-| `--threshold <0-100>`           | Set fuzzy search match threshold percentage  |
+
+### Library Management
+
+| Option                        | Description                                    |
+|-------------------------------|-----------------------------------------------|
+| `--library-list`                | List all your DAB libraries                   |
+| `--library-view LIBRARY_ID`     | View library details                          |
+| `--library-export LIBRARY_ID`   | Export library to file                        |
+| `--library-duplicates LIBRARY_ID` | Find duplicate tracks in library            |
+| `--library-delete LIBRARY_ID`   | Delete tracks from library                    |
+| `--interactive`                 | Use interactive TUI mode                      |
+| `--library-name NAME`           | Search library by name                        |
+| `--format {json,csv}`           | Export format (default: json)                 |
+| `--output PATH`                 | Output path for export                        |
+| `--track-ids IDS`               | Comma-separated track IDs for deletion        |
+| `--dup-threshold <0-100>`       | Duplicate detection threshold (default: 95)   |
+
+### Other
+
+| Option                        | Description                                    |
+|-------------------------------|-----------------------------------------------|
 | `--version`                     | Show current version                           |
 | `--credits`                     | Show tool credits and acknowledgements       |
 | `--update`                      | Check for updates                              |
