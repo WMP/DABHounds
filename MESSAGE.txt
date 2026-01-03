@@ -1,0 +1,15 @@
+Hi! I've prepared a large PR with comprehensive library management functionality for DABHounds.
+
+The feature adds both interactive TUI mode (with curses) and CLI commands for viewing, managing, and cleaning up DAB libraries. Key features include:
+- Full-screen interactive browser with arrow key navigation
+- Duplicate detection using ISRC + fuzzy matching (found 19 groups in my 322-track library)
+- Bulk operations: select, delete, export to JSON/CSV
+- Smart caching system (15 seconds → <1 second for repeated operations)
+- Library search by name, interactive library picker
+- Proper pagination support for large libraries
+
+Everything is well-documented (3 doc files + updated README), tested extensively, and backward compatible. The PR is ready for review: https://github.com/WMP/DABHounds/pull/new/feature/library-manager
+
+Stats: +2,584 lines, 9 files changed, 22 commits.
+
+I know this is a very large change - feel free to reject it if it doesn't fit your vision for the project. I mainly built it for my own needs, but thought I'd share in case it's useful to others. No pressure to merge! Let me know if you have any questions.

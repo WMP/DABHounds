@@ -13,12 +13,13 @@ from typing import Dict, List, Optional
 import requests
 from tqdm import tqdm
 
-from dabhounds.core.auth import get_session, load_config
+from dabhounds.core.auth import get_authenticated_session, load_config
 
 CONFIG = load_config()
 API_BASE = CONFIG["DAB_API_BASE"]
 
 # Quality format mapping (Qobuz-based)
+QUALITY_FORMATS = {
     "mp3": 5,  # MP3 320kbps
     "cd": 6,  # CD Quality (16-bit/44.1kHz FLAC)
     "hires": 7,  # Hi-Res 24-bit up to 96kHz
@@ -45,7 +46,7 @@ def get_stream_url(track_id: str, quality: int = 27) -> Optional[str]:
     Returns:
         Streaming URL or None if failed
     """
-    session = get_session()
+    session = get_authenticated_session()
     if not session:
         print("[DABHound] Error: Not authenticated. Please login first.")
         return None
@@ -271,6 +272,5 @@ def get_available_qualities(track_id: str) -> List[Dict[str, any]]:
                 "available": url is not None,
             }
         )
-        })
 
     return available
