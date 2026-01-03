@@ -411,10 +411,12 @@ class LibraryTUI:
             filtered = self.get_filtered_tracks()
             if filtered:
                 self.cursor_pos = min(len(filtered) - 1, self.cursor_pos + 1)
-                # Auto-scroll down if cursor moves below visible area
+                # Ensure cursor is visible - more aggressive scrolling
+                # In duplicates mode, we need extra room for group headers
                 list_height = max(1, height - 5 - 6)
-                if self.cursor_pos >= self.scroll_pos + list_height:
-                    self.scroll_pos = self.cursor_pos - list_height + 1
+                # Keep cursor in middle third when scrolling down
+                if self.cursor_pos >= self.scroll_pos + (list_height // 2):
+                    self.scroll_pos = max(0, self.cursor_pos - (list_height // 2))
         elif key == curses.KEY_PPAGE:  # Page Up
             filtered = self.get_filtered_tracks()
             if filtered:
