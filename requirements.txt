@@ -3,3 +3,4 @@ spotipy
 yt-dlp
 musicbrainzngs
 rapidfuzz
+tqdm
